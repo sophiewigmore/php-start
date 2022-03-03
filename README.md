@@ -1,2 +1,1 @@
-# php-start
-PHP Web Server Start CNB
+# PHP Start Cloud Native Buildpack
