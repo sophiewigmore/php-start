@@ -32,13 +32,18 @@ func testDetect(t *testing.T, context spec.G, it spec.S) {
 	})
 
 	context("Detect", func() {
-		it("requires php, php-fpm, httpd, httpd-conf", func() {
+		it("requires php, php-fpm, httpd, httpd-conf, and httpd-start and provides httpd-start", func() {
 			result, err := detect(packit.DetectContext{
 				WorkingDir: workingDir,
 			})
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(result.Plan).To(Equal(packit.BuildPlan{
+				Provides: []packit.BuildPlanProvision{
+					{
+						Name: "httpd-start",
+					},
+				},
 				Requires: []packit.BuildPlanRequirement{
 					{
 						Name: "php",
@@ -59,10 +64,13 @@ func testDetect(t *testing.T, context spec.G, it spec.S) {
 						},
 					},
 					{
-						Name: "httpd-conf",
+						Name: "httpd-config",
 						Metadata: phpstart.BuildPlanMetadata{
 							Launch: true,
 						},
+					},
+					{
+						Name: "httpd-start",
 					},
 				},
 			}))
