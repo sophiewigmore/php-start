@@ -39,21 +39,17 @@ func testDetect(t *testing.T, context spec.G, it spec.S) {
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(result.Plan).To(Equal(packit.BuildPlan{
-				Provides: []packit.BuildPlanProvision{
-					{
-						Name: "httpd-start",
-					},
-				},
 				Requires: []packit.BuildPlanRequirement{
 					{
 						Name: "php",
 						Metadata: phpstart.BuildPlanMetadata{
-							Launch: true,
+							Build: true,
 						},
 					},
 					{
 						Name: "php-fpm",
 						Metadata: phpstart.BuildPlanMetadata{
+							Build:  true,
 							Launch: true,
 						},
 					},
@@ -67,10 +63,8 @@ func testDetect(t *testing.T, context spec.G, it spec.S) {
 						Name: "httpd-config",
 						Metadata: phpstart.BuildPlanMetadata{
 							Launch: true,
+							Build:  true,
 						},
-					},
-					{
-						Name: "httpd-start",
 					},
 				},
 			}))

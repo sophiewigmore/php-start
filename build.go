@@ -38,6 +38,7 @@ func Build(logger scribe.Emitter) packit.BuildFunc {
 						Type: "web",
 						// Command: procmgr,
 						Default: true,
+						Direct:  true,
 					},
 				},
 			},
