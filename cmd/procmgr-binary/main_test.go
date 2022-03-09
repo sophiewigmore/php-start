@@ -3,9 +3,8 @@ package main
 import (
 	"testing"
 
-	"github.com/paketo-buildpacks/php-start/procmgr"
-
 	. "github.com/onsi/gomega"
+	phpstart "github.com/paketo-buildpacks/php-start"
 	"github.com/sclevine/spec"
 	"github.com/sclevine/spec/report"
 )
@@ -20,8 +19,8 @@ func testProcmgr(t *testing.T, _ spec.G, it spec.S) {
 	})
 
 	it("should run a proc", func() {
-		err := runProcs(procmgr.Procs{
-			Processes: map[string]procmgr.Proc{
+		err := runProcs(phpstart.Procs{
+			Processes: map[string]phpstart.Proc{
 				"proc1": {
 					Command: "echo",
 					Args:    []string{"'Hello World!"},
@@ -32,8 +31,8 @@ func testProcmgr(t *testing.T, _ spec.G, it spec.S) {
 	})
 
 	it("should fail when running a proc that doesn't exist", func() {
-		err := runProcs(procmgr.Procs{
-			Processes: map[string]procmgr.Proc{
+		err := runProcs(phpstart.Procs{
+			Processes: map[string]phpstart.Proc{
 				"proc1": {
 					Command: "idontexist",
 					Args:    []string{},
@@ -44,8 +43,8 @@ func testProcmgr(t *testing.T, _ spec.G, it spec.S) {
 	})
 
 	it("should run two procs", func() {
-		err := runProcs(procmgr.Procs{
-			Processes: map[string]procmgr.Proc{
+		err := runProcs(phpstart.Procs{
+			Processes: map[string]phpstart.Proc{
 				"proc1": {
 					Command: "echo",
 					Args:    []string{"'Hello World!"},
@@ -60,8 +59,8 @@ func testProcmgr(t *testing.T, _ spec.G, it spec.S) {
 	})
 
 	it("should fail if proc exits non-zero", func() {
-		err := runProcs(procmgr.Procs{
-			Processes: map[string]procmgr.Proc{
+		err := runProcs(phpstart.Procs{
+			Processes: map[string]phpstart.Proc{
 				"proc1": {
 					Command: "false",
 					Args:    []string{""},
@@ -72,8 +71,8 @@ func testProcmgr(t *testing.T, _ spec.G, it spec.S) {
 	})
 
 	it("should run two procs, where one is shorter", func() {
-		err := runProcs(procmgr.Procs{
-			Processes: map[string]procmgr.Proc{
+		err := runProcs(phpstart.Procs{
+			Processes: map[string]phpstart.Proc{
 				"sleep0.25": {
 					Command: "sleep",
 					Args:    []string{"0.25"},

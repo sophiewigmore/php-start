@@ -1,4 +1,4 @@
-package procmgr
+package phpstart
 
 import (
 	"fmt"
@@ -9,7 +9,7 @@ import (
 )
 
 // TODO can we do this without yml?
-// TODO can we remove CF libcfbuuldpack helper?
+// TODO clean up code
 
 // Procs is the existing list of process names and commands to run
 type Procs struct {
@@ -32,21 +32,20 @@ func NewProcs() Procs {
 	}
 }
 
-// TODO add testing
 func (procs Procs) Add(procName string, newProc Proc) {
 	procs.Processes[procName] = newProc
 }
 
 //TODO make this WriteFile
-func (procs Procs) WriteProcs(path string) error {
+func (procs Procs) WriteFile(path string) error {
 	bytes, err := yaml.Marshal(procs)
 	if err != nil {
+		//untested
 		return err
 	}
 	return os.WriteFile(path, bytes, 0644)
 }
 
-//TODO make this a funcion on Procs type
 func ReadProcs(path string) (Procs, error) {
 	procs := Procs{}
 
@@ -67,7 +66,7 @@ func ReadProcs(path string) (Procs, error) {
 
 	err = yaml.UnmarshalStrict(contents, &procs)
 	if err != nil {
-		return Procs{}, fmt.Errorf("invalid proc.ymls contents:\n %q: %w", contents, err)
+		return Procs{}, fmt.Errorf("invalid proc.yml contents:\n %q: %w", contents, err)
 	}
 
 	return procs, nil

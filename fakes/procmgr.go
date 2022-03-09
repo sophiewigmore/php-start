@@ -3,7 +3,7 @@ package fakes
 import (
 	"sync"
 
-	"github.com/paketo-buildpacks/php-start/procmgr"
+	phpstart "github.com/paketo-buildpacks/php-start"
 )
 
 type ProcMgr struct {
@@ -12,23 +12,11 @@ type ProcMgr struct {
 		CallCount int
 		Receives  struct {
 			Name string
-			Proc procmgr.Proc
+			Proc phpstart.Proc
 		}
-		Stub func(string, procmgr.Proc)
+		Stub func(string, phpstart.Proc)
 	}
-	AppendOrUpdateProcsCall struct {
-		mutex     sync.Mutex
-		CallCount int
-		Receives  struct {
-			Name string
-			Proc procmgr.Proc
-		}
-		Returns struct {
-			Error error
-		}
-		Stub func(string, procmgr.Proc) error
-	}
-	WriteProcsCall struct {
+	WriteFileCall struct {
 		mutex     sync.Mutex
 		CallCount int
 		Receives  struct {
@@ -41,7 +29,7 @@ type ProcMgr struct {
 	}
 }
 
-func (f *ProcMgr) Add(param1 string, param2 procmgr.Proc) {
+func (f *ProcMgr) Add(param1 string, param2 phpstart.Proc) {
 	f.AddCall.mutex.Lock()
 	defer f.AddCall.mutex.Unlock()
 	f.AddCall.CallCount++
@@ -51,24 +39,13 @@ func (f *ProcMgr) Add(param1 string, param2 procmgr.Proc) {
 		f.AddCall.Stub(param1, param2)
 	}
 }
-func (f *ProcMgr) AppendOrUpdateProcs(param1 string, param2 procmgr.Proc) error {
-	f.AppendOrUpdateProcsCall.mutex.Lock()
-	defer f.AppendOrUpdateProcsCall.mutex.Unlock()
-	f.AppendOrUpdateProcsCall.CallCount++
-	f.AppendOrUpdateProcsCall.Receives.Name = param1
-	f.AppendOrUpdateProcsCall.Receives.Proc = param2
-	if f.AppendOrUpdateProcsCall.Stub != nil {
-		return f.AppendOrUpdateProcsCall.Stub(param1, param2)
+func (f *ProcMgr) WriteFile(param1 string) error {
+	f.WriteFileCall.mutex.Lock()
+	defer f.WriteFileCall.mutex.Unlock()
+	f.WriteFileCall.CallCount++
+	f.WriteFileCall.Receives.Path = param1
+	if f.WriteFileCall.Stub != nil {
+		return f.WriteFileCall.Stub(param1)
 	}
-	return f.AppendOrUpdateProcsCall.Returns.Error
-}
-func (f *ProcMgr) WriteProcs(param1 string) error {
-	f.WriteProcsCall.mutex.Lock()
-	defer f.WriteProcsCall.mutex.Unlock()
-	f.WriteProcsCall.CallCount++
-	f.WriteProcsCall.Receives.Path = param1
-	if f.WriteProcsCall.Stub != nil {
-		return f.WriteProcsCall.Stub(param1)
-	}
-	return f.WriteProcsCall.Returns.Error
+	return f.WriteFileCall.Returns.Error
 }

@@ -8,6 +8,7 @@ import (
 	"github.com/paketo-buildpacks/packit/v2"
 	"github.com/paketo-buildpacks/packit/v2/scribe"
 	phpstart "github.com/paketo-buildpacks/php-start"
+	"github.com/paketo-buildpacks/php-start/fakes"
 	"github.com/sclevine/spec"
 
 	. "github.com/onsi/gomega"
@@ -21,8 +22,8 @@ func testBuild(t *testing.T, context spec.G, it spec.S) {
 		workingDir string
 		cnbDir     string
 
-		buffer *bytes.Buffer
-		// timestamp time.Time
+		buffer  *bytes.Buffer
+		procMgr *fakes.ProcMgr
 
 		build packit.BuildFunc
 	)
@@ -38,15 +39,12 @@ func testBuild(t *testing.T, context spec.G, it spec.S) {
 		workingDir, err = os.MkdirTemp("", "working-dir")
 		Expect(err).NotTo(HaveOccurred())
 
-		// timestamp = time.Now()
-		// clock := chronos.NewClock(func() time.Time {
-		// 	return timestamp
-		// })
 		buffer = bytes.NewBuffer(nil)
 		logEmitter := scribe.NewEmitter(buffer)
 
+		procMgr = &fakes.ProcMgr{}
 		// Expect(os.Setenv("PHPRC", "some-php-dist-path")).To(Succeed())
-		build = phpstart.Build(logEmitter)
+		build = phpstart.Build(procMgr, logEmitter)
 	})
 
 	it.After(func() {

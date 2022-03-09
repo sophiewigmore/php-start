@@ -17,7 +17,7 @@ import (
 	"os"
 	"os/exec"
 
-	"github.com/paketo-buildpacks/php-start/procmgr"
+	phpstart "github.com/paketo-buildpacks/php-start"
 )
 
 func main() {
@@ -29,7 +29,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	procs, err := procmgr.ReadProcs(os.Args[1])
+	procs, err := phpstart.ReadProcs(os.Args[1])
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "error loading/parsing procs file:", err)
 		os.Exit(2)
@@ -47,7 +47,7 @@ type procMsg struct {
 	Err      error
 }
 
-func runProcs(procs procmgr.Procs) error {
+func runProcs(procs phpstart.Procs) error {
 	fmt.Println("calling from cmd/procmgr")
 	msgs := make(chan procMsg)
 
@@ -60,7 +60,7 @@ func runProcs(procs procmgr.Procs) error {
 	return msg.Err
 }
 
-func runProc(procName string, proc procmgr.Proc, msgs chan procMsg) {
+func runProc(procName string, proc phpstart.Proc, msgs chan procMsg) {
 	cmd := exec.Command(proc.Command, proc.Args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr

@@ -7,21 +7,20 @@ import (
 
 	"github.com/paketo-buildpacks/packit/v2"
 	"github.com/paketo-buildpacks/packit/v2/scribe"
-	"github.com/paketo-buildpacks/php-start/procmgr"
 )
 
 //go:generate faux --interface ProcMgr --output fakes/procmgr.go
 
 // ProcMgr
 type ProcMgr interface {
-	Add(name string, proc procmgr.Proc)
-	WriteProcs(path string) error
-	AppendOrUpdateProcs(name string, proc procmgr.Proc) error
+	Add(name string, proc Proc)
+	WriteFile(path string) error
 }
 
 func Build(procs ProcMgr, logger scribe.Emitter) packit.BuildFunc {
 	return func(context packit.BuildContext) (packit.BuildResult, error) {
 		// TODO: add logging
+		// TODO: add code comments
 		logger.Process("START BUILDPACK")
 
 		layer, err := context.Layers.Get("php-start")
@@ -40,7 +39,7 @@ func Build(procs ProcMgr, logger scribe.Emitter) packit.BuildFunc {
 
 		httpdConfPath := os.Getenv("PHP_HTTPD_PATH")
 		if httpdConfPath != "" {
-			serverProc := procmgr.NewProc("httpd", []string{"-f", httpdConfPath, "-k", "start", "-DFOREGROUND"})
+			serverProc := NewProc("httpd", []string{"-f", httpdConfPath, "-k", "start", "-DFOREGROUND"})
 			procs.Add("httpd", serverProc)
 		}
 
@@ -51,12 +50,12 @@ func Build(procs ProcMgr, logger scribe.Emitter) packit.BuildFunc {
 				// return packit.BuildResult{}, errors.New("failed searching for HTTPD configuration path")
 				panic("no PHPRC path set")
 			}
-			fpmProc := procmgr.NewProc("php-fpm", []string{"-y", fpmConfPath, "-c", phprcPath})
+			fpmProc := NewProc("php-fpm", []string{"-y", fpmConfPath, "-c", phprcPath})
 			procs.Add("fpm", fpmProc)
 		}
 
 		// TODO make this return a path?
-		err = procs.WriteProcs(filepath.Join(layer.Path, "procs.yml"))
+		err = procs.WriteFile(filepath.Join(layer.Path, "procs.yml"))
 		if err != nil {
 			panic(err)
 		}
