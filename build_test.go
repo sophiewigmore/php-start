@@ -90,6 +90,10 @@ func testBuild(t *testing.T, context spec.G, it spec.S) {
 				Default: true,
 				Direct:  true,
 			}))
+			Expect(result.Layers[0].Name).To(Equal("php-start"))
+			Expect(result.Layers[0].Path).To(Equal(filepath.Join(layersDir, "php-start")))
+			Expect(result.Layers[0].Launch).To(BeTrue())
+			Expect(result.Layers[0].Build).To(BeFalse())
 
 			Expect(procMgr.AddCall.CallCount).To(Equal(1))
 			Expect(procMgr.AddCall.Receives.Name).To(Equal("httpd"))
@@ -160,5 +164,29 @@ func testBuild(t *testing.T, context spec.G, it spec.S) {
 		})
 	})
 
-	context("failure cases", func() {})
+	context("failure cases", func() {
+		context("the PHP_FPM_PATH is set but PHPRC is not", func() {
+			it.Before(func() {
+				Expect(os.Setenv("PHP_FPM_PATH", "fpm-conf-path")).To(Succeed())
+			})
+
+			it.After(func() {
+				Expect(os.Unsetenv("PHP_FPM_PATH")).To(Succeed())
+			})
+
+			it("returns an error, since the PHPRC is needed for FPM start command", func() {
+				_, err := build(packit.BuildContext{
+					WorkingDir: workingDir,
+					CNBPath:    cnbDir,
+					BuildpackInfo: packit.BuildpackInfo{
+						Name:    "Some Buildpack",
+						Version: "some-version",
+					},
+					Layers: packit.Layers{Path: layersDir},
+				})
+				Expect(err).To(MatchError(ContainSubstring("failed to lookup $PHPRC path for FPM")))
+			})
+		})
+
+	})
 }

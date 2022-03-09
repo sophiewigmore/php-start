@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/paketo-buildpacks/occam"
@@ -52,49 +51,46 @@ func testDefault(t *testing.T, context spec.G, it spec.S) {
 			Expect(os.RemoveAll(source)).To(Succeed())
 		})
 
-		it("generates a functional httpd config file", func() {
-			var (
-				logs fmt.Stringer
-				err  error
-			)
+		context("HTTPD and FPM", func() {
+			it("successfully starts a PHP app with HTTPD and FPM", func() {
+				var (
+					logs fmt.Stringer
+					err  error
+				)
 
-			image, logs, err = pack.WithNoColor().Build.
-				WithPullPolicy("never").
-				WithBuildpacks(
-					httpdBuildpack,
-					buildpack,
-					buildPlanBuildpack,
-					procfileBuildpack,
-				).
-				WithEnv(map[string]string{
-					"BP_LOG_LEVEL":  "DEBUG",
-					"BP_PHP_SERVER": "httpd",
-				}).
-				Execute(name, source)
-			Expect(err).ToNot(HaveOccurred(), logs.String)
-			Expect(logs).To(ContainLines(
-				MatchRegexp(fmt.Sprintf(`%s \d+\.\d+\.\d+`, buildpackInfo.Buildpack.Name)),
-				"  Getting the layer associated with the HTTPD configuration",
-				"    /layers/paketo-buildpacks_php-httpd/php-httpd-config",
-				"",
-				"  Setting up the HTTPD configuration file",
-				"    Including user-provided HTTPD configuration from: /workspace/.httpd.conf.d/*.conf",
-				"    Server admin: admin@localhost",
-				"    Web directory: htdocs",
-				"    Enable HTTPS redirect: true",
-				"",
-				"  Configuring launch environment",
-				MatchRegexp(fmt.Sprintf(`    PHP_HTTPD_PATH -> "/layers/%s/php-httpd-config/httpd.conf"`, strings.ReplaceAll(buildpackInfo.Buildpack.ID, "/", "_"))),
-			))
+				image, logs, err = pack.WithNoColor().Build.
+					WithPullPolicy("never").
+					WithBuildpacks(
+						phpDistBuildpack,
+						phpFpmBuildpack,
+						httpdBuildpack,
+						phpHttpdBuildpack,
+						buildpack,
+					).
+					WithEnv(map[string]string{
+						"BP_LOG_LEVEL":  "DEBUG",
+						"BP_PHP_SERVER": "httpd",
+					}).
+					Execute(name, source)
+				Expect(err).ToNot(HaveOccurred(), logs.String)
 
-			container, err = docker.Container.Run.
-				WithEnv(map[string]string{"PORT": "8080"}).
-				WithPublish("8080").
-				WithPublishAll().
-				Execute(image.ID)
-			Expect(err).NotTo(HaveOccurred())
+				// Expect(logs).To(ContainLines(
+				// 	MatchRegexp(fmt.Sprintf(`%s \d+\.\d+\.\d+`, buildpackInfo.Buildpack.Name)),
+				// 	"  Getting the layer associated with the HTTPD configuration",
+				// 	"    /layers/paketo-buildpacks_php-httpd/php-httpd-config",
+				// 	"",
+				// ))
 
-			Eventually(container).Should(Serve(ContainSubstring("Hello World!")).OnPort(8080))
+				container, err = docker.Container.Run.
+					WithEnv(map[string]string{"PORT": "8080"}).
+					WithPublish("8080").
+					WithPublishAll().
+					Execute(image.ID)
+				Expect(err).NotTo(HaveOccurred())
+
+				Eventually(container).Should(Serve(ContainSubstring("Hello World!")).OnPort(8080))
+			})
+
 		})
 	})
 }

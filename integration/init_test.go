@@ -17,13 +17,12 @@ import (
 )
 
 var (
-	buildpack             string
-	offlineBuildpack      string
-	buildPlanBuildpack    string
-	httpdBuildpack        string
-	offlineHttpdBuildpack string
-	procfileBuildpack     string
-	root                  string
+	buildpack         string
+	phpDistBuildpack  string
+	phpFpmBuildpack   string
+	httpdBuildpack    string
+	phpHttpdBuildpack string
+	root              string
 
 	buildpackInfo struct {
 		Buildpack struct {
@@ -33,15 +32,17 @@ var (
 	}
 )
 
+// TODO update integration.json URIs
 func TestIntegration(t *testing.T) {
 	Expect := NewWithT(t).Expect
 
 	format.MaxLength = 0
 
 	var config struct {
-		BuildPlan string `json:"build-plan"`
-		Httpd     string `json:"httpd"`
-		Procfile  string `json:"procfile"`
+		PhpDist  string `json:"php-dist"`
+		PhpFpm   string `json:"php-fpm"`
+		Httpd    string `json:"httpd"`
+		PhpHttpd string `json:"php-httpd"`
 	}
 
 	file, err := os.Open("../integration.json")
@@ -66,27 +67,22 @@ func TestIntegration(t *testing.T) {
 		Execute(root)
 	Expect(err).NotTo(HaveOccurred())
 
-	offlineBuildpack, err = buildpackStore.Get.
-		WithOfflineDependencies().
-		WithVersion("1.2.3").
-		Execute(root)
+	phpDistBuildpack, err = buildpackStore.Get.
+		Execute(config.PhpDist)
 	Expect(err).NotTo(HaveOccurred())
 
-	buildPlanBuildpack, err = buildpackStore.Get.
-		Execute(config.BuildPlan)
+	phpFpmBuildpack, err = buildpackStore.Get.
+		WithVersion("1.2.3").
+		Execute(config.PhpFpm)
 	Expect(err).NotTo(HaveOccurred())
 
 	httpdBuildpack, err = buildpackStore.Get.
 		Execute(config.Httpd)
 	Expect(err).NotTo(HaveOccurred())
 
-	offlineHttpdBuildpack, err = buildpackStore.Get.
-		WithOfflineDependencies().
-		Execute(config.Httpd)
-	Expect(err).NotTo(HaveOccurred())
-
-	procfileBuildpack, err = buildpackStore.Get.
-		Execute(config.Procfile)
+	phpHttpdBuildpack, err = buildpackStore.Get.
+		WithVersion("1.2.3").
+		Execute(config.PhpHttpd)
 	Expect(err).NotTo(HaveOccurred())
 
 	SetDefaultEventuallyTimeout(10 * time.Second)

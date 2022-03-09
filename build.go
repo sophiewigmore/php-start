@@ -1,6 +1,7 @@
 package phpstart
 
 import (
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -21,6 +22,7 @@ func Build(procs ProcMgr, logger scribe.Emitter) packit.BuildFunc {
 	return func(context packit.BuildContext) (packit.BuildResult, error) {
 		// TODO: add logging
 		// TODO: add code comments
+		// TODO: add failure case tests
 		logger.Process("START BUILDPACK")
 
 		layer, err := context.Layers.Get("php-start")
@@ -33,11 +35,6 @@ func Build(procs ProcMgr, logger scribe.Emitter) packit.BuildFunc {
 		}
 		layer.Launch = true
 
-		err = copyExecutable(filepath.Join(context.CNBPath, "bin", "procmgr-binary"), filepath.Join(layer.Path, "procmgr-binary"))
-		if err != nil {
-			panic(err)
-		}
-
 		httpdConfPath := os.Getenv("PHP_HTTPD_PATH")
 		if httpdConfPath != "" {
 			serverProc := NewProc("httpd", []string{"-f", httpdConfPath, "-k", "start", "-DFOREGROUND"})
@@ -48,15 +45,17 @@ func Build(procs ProcMgr, logger scribe.Emitter) packit.BuildFunc {
 		if fpmConfPath != "" {
 			phprcPath, ok := os.LookupEnv("PHPRC")
 			if !ok {
-				// return packit.BuildResult{}, errors.New("failed searching for HTTPD configuration path")
-				panic("no PHPRC path set")
+				return packit.BuildResult{}, errors.New("failed to lookup $PHPRC path for FPM")
 			}
 			fpmProc := NewProc("php-fpm", []string{"-y", fpmConfPath, "-c", phprcPath})
 			procs.Add("fpm", fpmProc)
 		}
 
-		// TODO make this return a path?
 		err = procs.WriteFile(filepath.Join(layer.Path, "procs.yml"))
+		if err != nil {
+			panic(err)
+		}
+		err = copyExecutable(filepath.Join(context.CNBPath, "bin", "procmgr-binary"), filepath.Join(layer.Path, "procmgr-binary"))
 		if err != nil {
 			panic(err)
 		}
