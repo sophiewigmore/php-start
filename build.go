@@ -32,6 +32,7 @@ func Build(procs ProcMgr, logger scribe.Emitter) packit.BuildFunc {
 			panic(err)
 		}
 		layer.Launch = true
+
 		err = copyExecutable(filepath.Join(context.CNBPath, "bin", "procmgr-binary"), filepath.Join(layer.Path, "procmgr-binary"))
 		if err != nil {
 			panic(err)
