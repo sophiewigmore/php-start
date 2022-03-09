@@ -5,11 +5,13 @@ import (
 	"io/ioutil"
 	"os"
 
-	"github.com/cloudfoundry/libcfbuildpack/helper"
 	"gopkg.in/yaml.v2"
 )
 
-// Procs is the list of process names and commands to run
+// TODO can we do this without yml?
+// TODO can we remove CF libcfbuuldpack helper?
+
+// Procs is the existing list of process names and commands to run
 type Procs struct {
 	Processes map[string]Proc
 }
@@ -20,8 +22,32 @@ type Proc struct {
 	Args    []string
 }
 
+func NewProc(command string, args []string) Proc {
+	return Proc{Command: command, Args: args}
+}
+
+func NewProcs() Procs {
+	return Procs{
+		Processes: map[string]Proc{},
+	}
+}
+
+// TODO add testing
+func (procs Procs) Add(procName string, newProc Proc) {
+	procs.Processes[procName] = newProc
+}
+
+//TODO make this WriteFile
+func (procs Procs) WriteProcs(path string) error {
+	bytes, err := yaml.Marshal(procs)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, bytes, 0644)
+}
+
+//TODO make this a funcion on Procs type
 func ReadProcs(path string) (Procs, error) {
-	fmt.Println("calling from read procs")
 	procs := Procs{}
 
 	file, err := os.Open(path)
@@ -45,27 +71,4 @@ func ReadProcs(path string) (Procs, error) {
 	}
 
 	return procs, nil
-}
-
-func WriteProcs(path string, procs Procs) error {
-	fmt.Println("calling from write procs")
-	bytes, err := yaml.Marshal(procs)
-	if err != nil {
-		return err
-	}
-	return helper.WriteFile(path, 0644, string(bytes))
-}
-
-// AppendOrUpdateProcs appends or updates the given procs to the current proc.yml
-func AppendOrUpdateProcs(path string, procs Procs) error {
-	existingProcs, err := ReadProcs(path)
-	if err != nil {
-		return fmt.Errorf("failed to append to proc.yml: %w", err)
-	}
-
-	for name, proc := range procs.Processes {
-		existingProcs.Processes[name] = proc
-	}
-
-	return WriteProcs(path, existingProcs)
 }

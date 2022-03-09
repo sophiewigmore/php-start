@@ -1,24 +1,48 @@
 package phpstart
 
 import (
-	"fmt"
+	"io"
 	"os"
+	"path/filepath"
 
 	"github.com/paketo-buildpacks/packit/v2"
 	"github.com/paketo-buildpacks/packit/v2/scribe"
+	"github.com/paketo-buildpacks/php-start/procmgr"
 )
 
-func Build(logger scribe.Emitter) packit.BuildFunc {
+//go:generate faux --interface ProcMgr --output fakes/procmgr.go
+
+// ProcMgr
+type ProcMgr interface {
+	Add(name string, proc procmgr.Proc)
+	WriteProcs(path string) error
+	AppendOrUpdateProcs(name string, proc procmgr.Proc) error
+}
+
+func Build(procs ProcMgr, logger scribe.Emitter) packit.BuildFunc {
 	return func(context packit.BuildContext) (packit.BuildResult, error) {
 		// TODO: add logging
 		logger.Process("START BUILDPACK")
 
-		var serverStartCmd string
+		layer, err := context.Layers.Get("php-start")
+		if err != nil {
+			panic(err)
+		}
+		layer, err = layer.Reset()
+		if err != nil {
+			panic(err)
+		}
+		layer.Launch = true
+		err = copyExecutable(filepath.Join(context.CNBPath, "bin", "procmgr-binary"), filepath.Join(layer.Path, "procmgr-binary"))
+		if err != nil {
+			panic(err)
+		}
+
 		httpdConfPath := os.Getenv("PHP_HTTPD_PATH")
 		if httpdConfPath != "" {
-			serverStartCmd = fmt.Sprintf("httpd -f  %s -k start -DFOREGROUND", httpdConfPath)
+			serverProc := procmgr.NewProc("httpd", []string{"-f", httpdConfPath, "-k", "start", "-DFOREGROUND"})
+			procs.Add("httpd", serverProc)
 		}
-		logger.Subprocess(serverStartCmd)
 
 		fpmConfPath := os.Getenv("PHP_FPM_PATH")
 		if fpmConfPath != "" {
@@ -27,16 +51,24 @@ func Build(logger scribe.Emitter) packit.BuildFunc {
 				// return packit.BuildResult{}, errors.New("failed searching for HTTPD configuration path")
 				panic("no PHPRC path set")
 			}
-			fpmStartCmd := fmt.Sprintf("php-fpm -y %s -c %s", fpmConfPath, phprcPath)
-			logger.Subprocess(fpmStartCmd)
+			fpmProc := procmgr.NewProc("php-fpm", []string{"-y", fpmConfPath, "-c", phprcPath})
+			procs.Add("fpm", fpmProc)
+		}
+
+		// TODO make this return a path?
+		err = procs.WriteProcs(filepath.Join(layer.Path, "procs.yml"))
+		if err != nil {
+			panic(err)
 		}
 
 		return packit.BuildResult{
+			Layers: []packit.Layer{layer},
 			Launch: packit.LaunchMetadata{
 				Processes: []packit.Process{
 					{
-						Type: "web",
-						// Command: procmgr,
+						Type:    "web",
+						Command: filepath.Join(layer.Path, "procmgr-binary"),
+						Args:    []string{filepath.Join(layer.Path, "procs.yml")},
 						Default: true,
 						Direct:  true,
 					},
@@ -44,4 +76,28 @@ func Build(logger scribe.Emitter) packit.BuildFunc {
 			},
 		}, nil
 	}
+}
+
+func copyExecutable(src, dst string) error {
+	srcFile, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer srcFile.Close()
+
+	dstFile, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer dstFile.Close()
+
+	_, err = io.Copy(dstFile, srcFile)
+	if err != nil {
+		return err
+	}
+	err = os.Chmod(dst, 0777)
+	if err != nil {
+		return err
+	}
+	return nil
 }

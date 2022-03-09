@@ -12,7 +12,7 @@ api = "0.7"
     uri = "https://github.com/paketo-buildpacks/php-start/blob/main/LICENSE"
 
     [metadata]
-    include-files = ["bin/build", "bin/detect", "bin/procmgr", "bin/run", "buildpack.toml"]
+    include-files = ["bin/build", "bin/detect", "bin/procmgr-binary", "bin/run", "buildpack.toml"]
     pre-package = "./scripts/build.sh"
 
 [[stacks]]
