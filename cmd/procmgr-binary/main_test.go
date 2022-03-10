@@ -6,83 +6,90 @@ import (
 	. "github.com/onsi/gomega"
 	phpstart "github.com/paketo-buildpacks/php-start"
 	"github.com/sclevine/spec"
-	"github.com/sclevine/spec/report"
 )
 
-func TestProcmgr(t *testing.T) {
-	spec.Run(t, "Procmgr", testProcmgr, spec.Report(report.Terminal{}))
-}
+// func TestUnitProcmgr(t *testing.T) {
+// 	spec.Run(t, "Procmgr", testProcmgr, spec.Report(report.Terminal{}))
+// }
 
-func testProcmgr(t *testing.T, _ spec.G, it spec.S) {
-	it.Before(func() {
-		RegisterTestingT(t)
+func testProcmgr(t *testing.T, context spec.G, it spec.S) {
+	var Expect = NewWithT(t).Expect
+
+	context("given a process", func() {
+		it("should run it", func() {
+			err := runProcs(phpstart.Procs{
+				Processes: map[string]phpstart.Proc{
+					"proc1": {
+						Command: "echo",
+						Args:    []string{"'Hello World!"},
+					},
+				},
+			})
+			Expect(err).ToNot(HaveOccurred())
+		})
 	})
 
-	it("should run a proc", func() {
-		err := runProcs(phpstart.Procs{
-			Processes: map[string]phpstart.Proc{
-				"proc1": {
-					Command: "echo",
-					Args:    []string{"'Hello World!"},
+	context("given a process that doesn't exist", func() {
+		it("should fail", func() {
+			err := runProcs(phpstart.Procs{
+				Processes: map[string]phpstart.Proc{
+					"proc1": {
+						Command: "idontexist",
+						Args:    []string{},
+					},
 				},
-			},
+			})
+			Expect(err).To(HaveOccurred())
 		})
-		Expect(err).ToNot(HaveOccurred())
 	})
 
-	it("should fail when running a proc that doesn't exist", func() {
-		err := runProcs(phpstart.Procs{
-			Processes: map[string]phpstart.Proc{
-				"proc1": {
-					Command: "idontexist",
-					Args:    []string{},
+	context("given two processes", func() {
+		it("should run both", func() {
+			err := runProcs(phpstart.Procs{
+				Processes: map[string]phpstart.Proc{
+					"proc1": {
+						Command: "echo",
+						Args:    []string{"'Hello World!"},
+					},
+					"proc2": {
+						Command: "echo",
+						Args:    []string{"'Good-bye World!"},
+					},
 				},
-			},
+			})
+			Expect(err).ToNot(HaveOccurred())
 		})
-		Expect(err).To(HaveOccurred())
 	})
 
-	it("should run two procs", func() {
-		err := runProcs(phpstart.Procs{
-			Processes: map[string]phpstart.Proc{
-				"proc1": {
-					Command: "echo",
-					Args:    []string{"'Hello World!"},
+	context("given a process that exits non-zero", func() {
+		it("fails", func() {
+			err := runProcs(phpstart.Procs{
+				Processes: map[string]phpstart.Proc{
+					"proc1": {
+						Command: "false",
+						Args:    []string{""},
+					},
 				},
-				"proc2": {
-					Command: "echo",
-					Args:    []string{"'Good-bye World!"},
-				},
-			},
+			})
+			Expect(err).To(HaveOccurred())
 		})
-		Expect(err).ToNot(HaveOccurred())
 	})
 
-	it("should fail if proc exits non-zero", func() {
-		err := runProcs(phpstart.Procs{
-			Processes: map[string]phpstart.Proc{
-				"proc1": {
-					Command: "false",
-					Args:    []string{""},
+	context("given two processes,w here one is shorter", func() {
+		it("should succeed in running both", func() {
+			err := runProcs(phpstart.Procs{
+				Processes: map[string]phpstart.Proc{
+					"sleep0.25": {
+						Command: "sleep",
+						Args:    []string{"0.25"},
+					},
+					"sleep1": {
+						Command: "sleep",
+						Args:    []string{"1"},
+					},
 				},
-			},
+			})
+			Expect(err).ToNot(HaveOccurred())
 		})
-		Expect(err).To(HaveOccurred())
-	})
-
-	it("should run two procs, where one is shorter", func() {
-		err := runProcs(phpstart.Procs{
-			Processes: map[string]phpstart.Proc{
-				"sleep0.25": {
-					Command: "sleep",
-					Args:    []string{"0.25"},
-				},
-				"sleep1": {
-					Command: "sleep",
-					Args:    []string{"1"},
-				},
-			},
-		})
-		Expect(err).ToNot(HaveOccurred())
 	})
 }

@@ -36,7 +36,6 @@ func (procs Procs) Add(procName string, newProc Proc) {
 	procs.Processes[procName] = newProc
 }
 
-//TODO make this WriteFile
 func (procs Procs) WriteFile(path string) error {
 	bytes, err := yaml.Marshal(procs)
 	if err != nil {

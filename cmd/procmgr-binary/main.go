@@ -1,17 +1,5 @@
 package main
 
-/*
-
-Things we need to do:
-
-1. create a procs.yml file or some equivalent in the layer or in workspace?
-/layer/bin/procmgr  - binary stored here
-/layer/procs.yml
-
-write the process metadata:
-   web procmgr procs.yml
-
-*/
 import (
 	"fmt"
 	"os"
@@ -48,7 +36,6 @@ type procMsg struct {
 }
 
 func runProcs(procs phpstart.Procs) error {
-	fmt.Println("calling from cmd/procmgr")
 	msgs := make(chan procMsg)
 
 	for procName, proc := range procs.Processes {

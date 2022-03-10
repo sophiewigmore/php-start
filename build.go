@@ -30,7 +30,6 @@ type ProcMgr interface {
 // image launch process.
 func Build(procs ProcMgr, logger scribe.Emitter) packit.BuildFunc {
 	return func(context packit.BuildContext) (packit.BuildResult, error) {
-		// TODO: add code comments
 		logger.Title("%s %s", context.BuildpackInfo.Name, context.BuildpackInfo.Version)
 
 		logger.Debug.Process("Getting the layer associated with the server start command")
