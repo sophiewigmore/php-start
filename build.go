@@ -2,11 +2,11 @@ package phpstart
 
 import (
 	"errors"
-	"io"
 	"os"
 	"path/filepath"
 
 	"github.com/paketo-buildpacks/packit/v2"
+	"github.com/paketo-buildpacks/packit/v2/fs"
 	"github.com/paketo-buildpacks/packit/v2/scribe"
 )
 
@@ -55,7 +55,8 @@ func Build(procs ProcMgr, logger scribe.Emitter) packit.BuildFunc {
 		if err != nil {
 			panic(err)
 		}
-		err = copyExecutable(filepath.Join(context.CNBPath, "bin", "procmgr-binary"), filepath.Join(layer.Path, "procmgr-binary"))
+		err = fs.Copy(filepath.Join(context.CNBPath, "bin", "procmgr-binary"), filepath.Join(layer.Path, "procmgr-binary"))
+		// err = copyExecutable()
 		if err != nil {
 			panic(err)
 		}
@@ -75,28 +76,4 @@ func Build(procs ProcMgr, logger scribe.Emitter) packit.BuildFunc {
 			},
 		}, nil
 	}
-}
-
-func copyExecutable(src, dst string) error {
-	srcFile, err := os.Open(src)
-	if err != nil {
-		return err
-	}
-	defer srcFile.Close()
-
-	dstFile, err := os.Create(dst)
-	if err != nil {
-		return err
-	}
-	defer dstFile.Close()
-
-	_, err = io.Copy(dstFile, srcFile)
-	if err != nil {
-		return err
-	}
-	err = os.Chmod(dst, 0777)
-	if err != nil {
-		return err
-	}
-	return nil
 }
