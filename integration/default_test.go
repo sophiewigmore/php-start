@@ -74,12 +74,21 @@ func testDefault(t *testing.T, context spec.G, it spec.S) {
 					Execute(name, source)
 				Expect(err).ToNot(HaveOccurred(), logs.String)
 
-				// Expect(logs).To(ContainLines(
-				// 	MatchRegexp(fmt.Sprintf(`%s \d+\.\d+\.\d+`, buildpackInfo.Buildpack.Name)),
-				// 	"  Getting the layer associated with the HTTPD configuration",
-				// 	"    /layers/paketo-buildpacks_php-httpd/php-httpd-config",
-				// 	"",
-				// ))
+				Expect(logs).To(ContainLines(
+					MatchRegexp(fmt.Sprintf(`%s \d+\.\d+\.\d+`, buildpackInfo.Buildpack.Name)),
+					"  Getting the layer associated with the server start command",
+					"    /layers/paketo-buildpacks_php-start/php-start",
+					"",
+					"  Determining start commands to include:",
+					"    HTTPD: httpd -f /layers/paketo-buildpacks_php-httpd/php-httpd-config/httpd.conf -k start -DFOREGROUND",
+					"    FPM: php-fpm -y /layers/paketo-buildpacks_php-fpm/php-fpm-config/base.conf -c /layers/paketo-buildpacks_php-dist/php/etc",
+					"    Writing process file to /layers/paketo-buildpacks_php-start/php-start/procs.yml",
+					"",
+					"  Copying procmgr-binary into /layers/paketo-buildpacks_php-start/php-start/procmgr-binary",
+					"",
+					"  Assigning launch processes:",
+					"    web (default): /layers/paketo-buildpacks_php-start/php-start/procmgr-binary /layers/paketo-buildpacks_php-start/php-start/procs.yml",
+				))
 
 				container, err = docker.Container.Run.
 					WithEnv(map[string]string{"PORT": "8080"}).

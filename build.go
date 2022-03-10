@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/paketo-buildpacks/packit/v2"
 	"github.com/paketo-buildpacks/packit/v2/fs"
@@ -29,15 +30,16 @@ type ProcMgr interface {
 // image launch process.
 func Build(procs ProcMgr, logger scribe.Emitter) packit.BuildFunc {
 	return func(context packit.BuildContext) (packit.BuildResult, error) {
-		// TODO: add logging
 		// TODO: add code comments
-		// TODO: add failure case tests
-		logger.Process("START BUILDPACK")
+		logger.Title("%s %s", context.BuildpackInfo.Name, context.BuildpackInfo.Version)
 
+		logger.Debug.Process("Getting the layer associated with the server start command")
 		layer, err := context.Layers.Get("php-start")
 		if err != nil {
 			return packit.BuildResult{}, err
 		}
+		logger.Debug.Subprocess(layer.Path)
+		logger.Break()
 
 		layer, err = layer.Reset()
 		if err != nil {
@@ -45,11 +47,13 @@ func Build(procs ProcMgr, logger scribe.Emitter) packit.BuildFunc {
 		}
 		layer.Launch = true
 
+		logger.Process("Determining start commands to include:")
 		// HTTPD Case
 		httpdConfPath := os.Getenv("PHP_HTTPD_PATH")
 		if httpdConfPath != "" {
 			serverProc := NewProc("httpd", []string{"-f", httpdConfPath, "-k", "start", "-DFOREGROUND"})
 			procs.Add("httpd", serverProc)
+			logger.Subprocess("HTTPD: %s %v", serverProc.Command, strings.Join(serverProc.Args, " "))
 		}
 
 		// FPM Case
@@ -61,32 +65,40 @@ func Build(procs ProcMgr, logger scribe.Emitter) packit.BuildFunc {
 			}
 			fpmProc := NewProc("php-fpm", []string{"-y", fpmConfPath, "-c", phprcPath})
 			procs.Add("fpm", fpmProc)
+			logger.Subprocess("FPM: %s %v", fpmProc.Command, strings.Join(fpmProc.Args, " "))
 		}
 
 		// Write the process file
+		logger.Debug.Subprocess("Writing process file to %s", filepath.Join(layer.Path, "procs.yml"))
+		logger.Debug.Break()
 		err = procs.WriteFile(filepath.Join(layer.Path, "procs.yml"))
 		if err != nil {
 			return packit.BuildResult{}, err
 		}
 
 		// Make the process manager binary available in layer
+		logger.Debug.Process("Copying procmgr-binary into %s", filepath.Join(layer.Path, "procmgr-binary"))
+		logger.Debug.Break()
 		err = fs.Copy(filepath.Join(context.CNBPath, "bin", "procmgr-binary"), filepath.Join(layer.Path, "procmgr-binary"))
 		if err != nil {
 			return packit.BuildResult{}, fmt.Errorf("failed to copy procmgr-binary into layer: %w", err)
 		}
 
+		processes := []packit.Process{
+			{
+				Type:    "web",
+				Command: filepath.Join(layer.Path, "procmgr-binary"),
+				Args:    []string{filepath.Join(layer.Path, "procs.yml")},
+				Default: true,
+				Direct:  true,
+			},
+		}
+		logger.LaunchProcesses(processes)
+
 		return packit.BuildResult{
 			Layers: []packit.Layer{layer},
 			Launch: packit.LaunchMetadata{
-				Processes: []packit.Process{
-					{
-						Type:    "web",
-						Command: filepath.Join(layer.Path, "procmgr-binary"),
-						Args:    []string{filepath.Join(layer.Path, "procs.yml")},
-						Default: true,
-						Direct:  true,
-					},
-				},
+				Processes: processes,
 			},
 		}, nil
 	}

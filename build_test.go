@@ -109,7 +109,9 @@ func testBuild(t *testing.T, context spec.G, it spec.S) {
 			}))
 
 			Expect(procMgr.WriteFileCall.Receives.Path).To(Equal(filepath.Join(layersDir, "php-start", "procs.yml")))
-			// TODO: Assert logs show both things being run
+			Expect(buffer.String()).To(ContainSubstring("Determining start commands to include:"))
+			Expect(buffer.String()).To(ContainSubstring("HTTPD: httpd -f httpd-conf-path -k start -DFOREGROUND"))
+			Expect(buffer.String()).ToNot(ContainSubstring("FPM: php-fpm -y fpm-conf-path -c phprc-path"))
 		})
 	})
 
@@ -165,6 +167,8 @@ func testBuild(t *testing.T, context spec.G, it spec.S) {
 			}))
 
 			Expect(procMgr.WriteFileCall.Receives.Path).To(Equal(filepath.Join(layersDir, "php-start", "procs.yml")))
+			Expect(buffer.String()).To(ContainSubstring("Determining start commands to include:"))
+			Expect(buffer.String()).To(ContainSubstring("FPM: php-fpm -y fpm-conf-path -c phprc-path"))
 		})
 	})
 
