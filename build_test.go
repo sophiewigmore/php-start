@@ -2,6 +2,8 @@ package phpstart_test
 
 import (
 	"bytes"
+	"errors"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -36,7 +38,6 @@ func testBuild(t *testing.T, context spec.G, it spec.S) {
 
 		cnbDir, err = os.MkdirTemp("", "cnb")
 		Expect(err).NotTo(HaveOccurred())
-
 		Expect(os.Mkdir(filepath.Join(cnbDir, "bin"), 0700)).To(Succeed())
 		Expect(os.WriteFile(filepath.Join(cnbDir, "bin", "procmgr-binary"), []byte{}, 0644)).To(Succeed())
 
@@ -65,7 +66,7 @@ func testBuild(t *testing.T, context spec.G, it spec.S) {
 			Expect(os.Unsetenv("PHP_HTTPD_PATH")).To(Succeed())
 		})
 
-		it("returns a result that sets a PHP web server and FPM start command", func() {
+		it("returns a result that sets an HTTPD start command", func() {
 			result, err := build(packit.BuildContext{
 				WorkingDir: workingDir,
 				CNBPath:    cnbDir,
@@ -90,6 +91,7 @@ func testBuild(t *testing.T, context spec.G, it spec.S) {
 				Default: true,
 				Direct:  true,
 			}))
+
 			Expect(result.Layers[0].Name).To(Equal("php-start"))
 			Expect(result.Layers[0].Path).To(Equal(filepath.Join(layersDir, "php-start")))
 			Expect(result.Layers[0].Launch).To(BeTrue())
@@ -107,23 +109,24 @@ func testBuild(t *testing.T, context spec.G, it spec.S) {
 			}))
 
 			Expect(procMgr.WriteFileCall.Receives.Path).To(Equal(filepath.Join(layersDir, "php-start", "procs.yml")))
-			// Assert logs show both things being run
-			// Add some REadProcs function and make sure it has:
+			// TODO: Assert logs show both things being run
 		})
 	})
 
-	context("the PHP_FPM_PATH and PHPRC env vars are set", func() {
+	context("the PHP_HTTPD, PHP_FPM_PATH, and PHPRC env vars are set", func() {
 		it.Before(func() {
+			Expect(os.Setenv("PHP_HTTPD_PATH", "httpd-conf-path")).To(Succeed())
 			Expect(os.Setenv("PHP_FPM_PATH", "fpm-conf-path")).To(Succeed())
 			Expect(os.Setenv("PHPRC", "phprc-path")).To(Succeed())
 		})
 
 		it.After(func() {
+			Expect(os.Unsetenv("PHP_HTTPD_PATH")).To(Succeed())
 			Expect(os.Unsetenv("PHP_FPM_PATH")).To(Succeed())
 			Expect(os.Unsetenv("PHPRC")).To(Succeed())
 		})
 
-		it("returns a result that sets a PHP web server and FPM start command", func() {
+		it("returns a result that starts an HTTPD process and an FPM process", func() {
 			result, err := build(packit.BuildContext{
 				WorkingDir: workingDir,
 				CNBPath:    cnbDir,
@@ -149,8 +152,9 @@ func testBuild(t *testing.T, context spec.G, it spec.S) {
 				Direct:  true,
 			}))
 
-			Expect(procMgr.AddCall.CallCount).To(Equal(1))
+			Expect(procMgr.AddCall.CallCount).To(Equal(2))
 
+			// can't check what procMgr.AddCall received first
 			Expect(procMgr.AddCall.Receives.Name).To(Equal("fpm"))
 			Expect(procMgr.AddCall.Receives.Proc.Command).To(Equal("php-fpm"))
 			Expect(procMgr.AddCall.Receives.Proc.Args).To(Equal([]string{
@@ -165,6 +169,57 @@ func testBuild(t *testing.T, context spec.G, it spec.S) {
 	})
 
 	context("failure cases", func() {
+
+		context("the php-start layer cannot be gotten", func() {
+			it.Before(func() {
+				Expect(ioutil.WriteFile(filepath.Join(layersDir, "php-start.toml"), nil, 0000)).To(Succeed())
+			})
+			it("it returns an error", func() {
+				_, err := build(packit.BuildContext{
+					WorkingDir: workingDir,
+					CNBPath:    cnbDir,
+					Stack:      "some-stack",
+					BuildpackInfo: packit.BuildpackInfo{
+						Name:    "Some Buildpack",
+						Version: "some-version",
+					},
+					Plan: packit.BuildpackPlan{
+						Entries: []packit.BuildpackPlanEntry{},
+					},
+					Layers: packit.Layers{Path: layersDir},
+				})
+				Expect(err).To(MatchError(ContainSubstring("failed to parse layer content metadata:")))
+			})
+		})
+
+		context("when the python layer cannot be reset", func() {
+			it.Before(func() {
+				Expect(os.MkdirAll(filepath.Join(layersDir, "php-start", "something"), os.ModePerm)).To(Succeed())
+				Expect(os.Chmod(filepath.Join(layersDir, "php-start"), 0500)).To(Succeed())
+			})
+
+			it.After(func() {
+				Expect(os.Chmod(filepath.Join(layersDir, "php-start"), os.ModePerm)).To(Succeed())
+			})
+
+			it("returns an error", func() {
+				_, err := build(packit.BuildContext{
+					WorkingDir: workingDir,
+					CNBPath:    cnbDir,
+					Stack:      "some-stack",
+					BuildpackInfo: packit.BuildpackInfo{
+						Name:    "Some Buildpack",
+						Version: "some-version",
+					},
+					Plan: packit.BuildpackPlan{
+						Entries: []packit.BuildpackPlanEntry{},
+					},
+					Layers: packit.Layers{Path: layersDir},
+				})
+				Expect(err).To(MatchError(ContainSubstring("could not remove file")))
+			})
+		})
+
 		context("the PHP_FPM_PATH is set but PHPRC is not", func() {
 			it.Before(func() {
 				Expect(os.Setenv("PHP_FPM_PATH", "fpm-conf-path")).To(Succeed())
@@ -188,5 +243,54 @@ func testBuild(t *testing.T, context spec.G, it spec.S) {
 			})
 		})
 
+		context("when the procs.yml cannot be written", func() {
+			it.Before(func() {
+				procMgr.WriteFileCall.Returns.Error = errors.New("failed to write procs.yml")
+			})
+
+			it("returns an error", func() {
+				_, err := build(packit.BuildContext{
+					WorkingDir: workingDir,
+					CNBPath:    cnbDir,
+					Stack:      "some-stack",
+					BuildpackInfo: packit.BuildpackInfo{
+						Name:    "Some Buildpack",
+						Version: "some-version",
+					},
+					Plan: packit.BuildpackPlan{
+						Entries: []packit.BuildpackPlanEntry{},
+					},
+					Layers: packit.Layers{Path: layersDir},
+				})
+				Expect(err).To(MatchError(ContainSubstring("failed to write procs.yml")))
+			})
+		})
+
+		context("when the procmgr binary cannot be copied into layer", func() {
+			it.Before(func() {
+				Expect(os.Chmod(filepath.Join(cnbDir, "bin", "procmgr-binary"), 0000)).To(Succeed())
+			})
+
+			it.After(func() {
+				Expect(os.Chmod(filepath.Join(cnbDir, "bin", "procmgr-binary"), os.ModePerm)).To(Succeed())
+			})
+
+			it("returns an error", func() {
+				_, err := build(packit.BuildContext{
+					WorkingDir: workingDir,
+					CNBPath:    cnbDir,
+					Stack:      "some-stack",
+					BuildpackInfo: packit.BuildpackInfo{
+						Name:    "Some Buildpack",
+						Version: "some-version",
+					},
+					Plan: packit.BuildpackPlan{
+						Entries: []packit.BuildpackPlanEntry{},
+					},
+					Layers: packit.Layers{Path: layersDir},
+				})
+				Expect(err).To(MatchError(ContainSubstring("failed to copy procmgr-binary into layer:")))
+			})
+		})
 	})
 }

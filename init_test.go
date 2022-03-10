@@ -9,7 +9,7 @@ import (
 
 func TestUnitPhpStart(t *testing.T) {
 	suite := spec.New("php-start", spec.Report(report.Terminal{}), spec.Parallel())
-	suite("Build", testBuild)
+	suite("Build", testBuild, spec.Sequential())
 	suite("Detect", testDetect)
 	suite("TestProcmgrLib", testProcmgrLib)
 	suite.Run(t)

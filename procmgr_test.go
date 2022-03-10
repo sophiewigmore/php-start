@@ -87,7 +87,7 @@ func testProcmgrLib(t *testing.T, context spec.G, it spec.S) {
 			it.Before(func() {
 				procsStr := `{"processes": {"echo1": {"command": "echo", "args": ["'Hello World!'"]}}}`
 				procsFilePath = filepath.Join(tmpDir, "procs.yml")
-				os.WriteFile(procsFilePath, []byte(procsStr), os.ModePerm)
+				Expect(os.WriteFile(procsFilePath, []byte(procsStr), os.ModePerm)).To(Succeed())
 			})
 			it.After(func() {
 				Expect(os.RemoveAll(procsFilePath)).To(Succeed())
@@ -130,7 +130,7 @@ func testProcmgrLib(t *testing.T, context spec.G, it spec.S) {
 				it.Before(func() {
 					procsStr := `non-yaml content`
 					badProcsFilePath = filepath.Join(tmpDir, "procs.yml")
-					os.WriteFile(badProcsFilePath, []byte(procsStr), os.ModePerm)
+					Expect(os.WriteFile(badProcsFilePath, []byte(procsStr), os.ModePerm)).To(Succeed())
 				})
 				it.After(func() {
 					Expect(os.RemoveAll(badProcsFilePath)).To(Succeed())

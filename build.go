@@ -2,6 +2,7 @@ package phpstart
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -12,12 +13,20 @@ import (
 
 //go:generate faux --interface ProcMgr --output fakes/procmgr.go
 
-// ProcMgr
+// ProcMgr manages all processes that the build  phase may need to run by
+// adding them to a procs.yml file for execution at launch time.
 type ProcMgr interface {
 	Add(name string, proc Proc)
 	WriteFile(path string) error
 }
 
+// Build will return a packit.BuildFunc that will be invoked during the build
+// phase of the buildpack lifecycle.
+//
+// It will create a layer dedicated to storing a process manager and YAML file
+// of processes to run, since there are multiple process that could be run. The
+// layer is available at and launch-time, and its contents are used in the
+// image launch process.
 func Build(procs ProcMgr, logger scribe.Emitter) packit.BuildFunc {
 	return func(context packit.BuildContext) (packit.BuildResult, error) {
 		// TODO: add logging
@@ -27,20 +36,23 @@ func Build(procs ProcMgr, logger scribe.Emitter) packit.BuildFunc {
 
 		layer, err := context.Layers.Get("php-start")
 		if err != nil {
-			panic(err)
+			return packit.BuildResult{}, err
 		}
+
 		layer, err = layer.Reset()
 		if err != nil {
-			panic(err)
+			return packit.BuildResult{}, err
 		}
 		layer.Launch = true
 
+		// HTTPD Case
 		httpdConfPath := os.Getenv("PHP_HTTPD_PATH")
 		if httpdConfPath != "" {
 			serverProc := NewProc("httpd", []string{"-f", httpdConfPath, "-k", "start", "-DFOREGROUND"})
 			procs.Add("httpd", serverProc)
 		}
 
+		// FPM Case
 		fpmConfPath := os.Getenv("PHP_FPM_PATH")
 		if fpmConfPath != "" {
 			phprcPath, ok := os.LookupEnv("PHPRC")
@@ -51,14 +63,16 @@ func Build(procs ProcMgr, logger scribe.Emitter) packit.BuildFunc {
 			procs.Add("fpm", fpmProc)
 		}
 
+		// Write the process file
 		err = procs.WriteFile(filepath.Join(layer.Path, "procs.yml"))
 		if err != nil {
-			panic(err)
+			return packit.BuildResult{}, err
 		}
+
+		// Make the process manager binary available in layer
 		err = fs.Copy(filepath.Join(context.CNBPath, "bin", "procmgr-binary"), filepath.Join(layer.Path, "procmgr-binary"))
-		// err = copyExecutable()
 		if err != nil {
-			panic(err)
+			return packit.BuildResult{}, fmt.Errorf("failed to copy procmgr-binary into layer: %w", err)
 		}
 
 		return packit.BuildResult{
